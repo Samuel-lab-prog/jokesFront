@@ -7,7 +7,7 @@ FROM oven/bun:1 AS builder
 WORKDIR /app
 COPY --from=deps /app/node_modules ./node_modules
 COPY . .
-ARG NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+ARG NEXT_PUBLIC_API_URL=https://jokesback-imrn.onrender.com
 ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
 ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build

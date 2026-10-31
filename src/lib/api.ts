@@ -1,4 +1,4 @@
-const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
+const API_URL = (process.env.NEXT_PUBLIC_API_URL || 'https://jokesback-imrn.onrender.com').replace(/\/$/, '');
 const TOKEN_KEY = 'piada-deploy-token';
 export type User = { id: string; name: string; email: string };
 export type Joke = { id: string; category: string; tone: string; context: string; joke: string; createdAt: string };
