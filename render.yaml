@@ -1,9 +1,10 @@
 services:
   - type: web
     name: piada-deploy-frontend
-    runtime: static
-    buildCommand: bun install --frozen-lockfile && bun run build
-    staticPublishPath: ./dist
+    runtime: docker
+    dockerfilePath: ./Dockerfile
+    dockerContext: .
+    healthCheckPath: /healthz
     envVars:
       - key: VITE_API_URL
         sync: false

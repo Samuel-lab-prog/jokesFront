@@ -8,7 +8,9 @@ Requer Bun. Execute `bun install`, copie `.env.example` para `.env`, ajuste `VIT
 
 ## Build e Render
 
-`bun run build` gera a pasta `dist`. O arquivo `render.yaml` configura a publicação como Static Site. No Render, defina `VITE_API_URL` com a URL pública do serviço de API.
+`bun run build` gera a pasta `dist`. O `Dockerfile` empacota o site com Nginx e o `render.yaml` configura um serviço Docker no Render. Publique primeiro a API, então defina `VITE_API_URL` no serviço com a URL pública dela (sem barra no final). O Render disponibiliza essa variável também durante o build da imagem.
+
+Para executar a imagem localmente, passe a URL da API que o navegador consegue acessar: `docker build --build-arg VITE_API_URL=http://localhost:3000 -t piada-deploy-frontend .` e depois `docker run --rm -p 8080:8080 piada-deploy-frontend`.
 
 ## Stack
 
