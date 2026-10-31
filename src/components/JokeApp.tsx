@@ -1,5 +1,7 @@
+'use client';
+
 import { useEffect, useState, type FormEvent } from 'react';
-import { api, clearToken, getToken, setToken, type Joke, type User } from './api';
+import { api, clearToken, getToken, setToken, type Joke, type User } from '@/lib/api';
 
 const categories = [
   { id: 'atraso', code: '01', name: 'Prazo vencido', note: 'o calendário ganhou', symbol: '⌁' },
@@ -25,6 +27,7 @@ export default function App() {
   const [tone, setTone] = useState('leve');
   const [context, setContext] = useState('');
   const [joke, setJoke] = useState<Joke | null>(null);
+  const [draft, setDraft] = useState('');
   const [history, setHistory] = useState<Joke[]>([]);
   const [user, setUser] = useState<User | null>(null);
   const [authOpen, setAuthOpen] = useState(false);
@@ -34,6 +37,8 @@ export default function App() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [editingId, setEditingId] = useState<string | null>(null);
+  const [historyDraft, setHistoryDraft] = useState('');
 
   const notify = (message: string) => {
     setToast(message);
@@ -56,7 +61,9 @@ export default function App() {
     api<{ user: User }>('/auth/me')
       .then(({ user: currentUser }) => setUser(currentUser))
       .catch(() => clearToken());
-    void refresh();
+    api<Joke[]>('/jokes/history')
+      .then((items) => setHistory(items))
+      .catch(() => { clearToken(); setUser(null); setHistory([]); });
   }, []);
 
   async function generate(event: FormEvent<HTMLFormElement>) {
@@ -68,12 +75,46 @@ export default function App() {
         body: JSON.stringify({ category, tone, context }),
       });
       setJoke(result);
-      await refresh();
+      setDraft(result.joke);
     } catch (error) {
       notify((error as Error).message);
     } finally {
       setBusy(false);
     }
+  }
+
+  async function saveDraft() {
+    if (!user) { setAuthOpen(true); notify('Entra no mural para guardar esta versão.'); return; }
+    if (!joke) return;
+    setBusy(true);
+    try {
+      await api<Joke>('/jokes', { method: 'POST', body: JSON.stringify({ category: joke.category, tone: joke.tone, context: joke.context, content: draft }) });
+      await refresh();
+      setJoke({ ...joke, joke: draft });
+      notify('Versão arquivada no mural.');
+    } catch (error) { notify((error as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function saveHistoryEdit(id: string) {
+    setBusy(true);
+    try {
+      await api(`/jokes/${id}`, { method: 'PATCH', body: JSON.stringify({ content: historyDraft }) });
+      setEditingId(null);
+      await refresh();
+      notify('Piada atualizada.');
+    } catch (error) { notify((error as Error).message); }
+    finally { setBusy(false); }
+  }
+
+  async function deleteJoke(id: string) {
+    setBusy(true);
+    try {
+      await api(`/jokes/${id}`, { method: 'DELETE' });
+      await refresh();
+      notify('Piada removida do arquivo.');
+    } catch (error) { notify((error as Error).message); }
+    finally { setBusy(false); }
   }
 
   async function authenticate(event: FormEvent<HTMLFormElement>) {
@@ -100,7 +141,7 @@ export default function App() {
   async function copyJoke() {
     if (!joke) return;
     try {
-      await navigator.clipboard.writeText(joke.joke);
+      await navigator.clipboard.writeText(draft);
       notify('Copiado. Pode negar a autoria.');
     } catch {
       notify('Não rolou copiar. Seleciona a frase e vai na mão.');
@@ -215,11 +256,11 @@ export default function App() {
           </div>
           {joke ? (
             <div className="result-content">
-              <div className="result-kicker"><span>VERSÃO OFICIAL</span><span>{categoryNames[joke.category]}</span></div>
-              <blockquote>{joke.joke}</blockquote>
+              <div className="result-kicker"><span>VERSÃO EDITÁVEL</span><span>{categoryNames[joke.category]}</span></div>
+              <textarea className="joke-editor" aria-label="Edite a piada antes de salvar" maxLength={500} value={draft} onChange={(event) => setDraft(event.target.value)} />
               <div className="result-meta">
                 <span>{joke.context ? `ANEXO: ${joke.context}` : 'VALIDADE: ATÉ A PRÓXIMA DAILY'}</span>
-                <button className="copy-button" onClick={copyJoke}>copiar ↗</button>
+                <div className="result-actions"><button className="copy-button" type="button" onClick={copyJoke}>copiar ↗</button><button className="copy-button save-button" type="button" disabled={busy || !draft.trim()} onClick={saveDraft}>salvar no mural</button></div>
               </div>
             </div>
           ) : (
@@ -241,11 +282,10 @@ export default function App() {
             <span className="history-count">{String(history.length).padStart(2, '0')}</span>
           </div>
           <div className="history-list">
-            {history.length ? history.slice(0, 4).map((item, index) => (
+            {history.length ? history.slice(0, 20).map((item, index) => (
               <article className="history-item" key={item.id}>
                 <span className="history-number">{String(index + 1).padStart(2, '0')}</span>
-                <p>{item.joke}</p>
-                <small>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</small>
+                <div className="history-entry">{editingId === item.id ? <><textarea className="history-editor" aria-label="Editar piada salva" maxLength={500} value={historyDraft} onChange={(event) => setHistoryDraft(event.target.value)} /><div className="history-tools"><button type="button" disabled={busy} onClick={() => saveHistoryEdit(item.id)}>salvar edição</button><button type="button" onClick={() => setEditingId(null)}>cancelar</button></div></> : <><p>{item.joke}</p><div className="history-tools"><small>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</small><button type="button" onClick={() => { setEditingId(item.id); setHistoryDraft(item.joke); }}>editar</button><button type="button" disabled={busy} onClick={() => deleteJoke(item.id)}>excluir</button></div></>}</div>
               </article>
             )) : (
               <p className="history-empty">

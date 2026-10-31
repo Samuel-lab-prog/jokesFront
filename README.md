@@ -1,21 +1,20 @@
-# Piada de Deploy — Front-end
+# Piada de Deploy — front-end
 
-Aplicação React + TypeScript criada com Vite. Este diretório é um repositório independente do back-end.
+Aplicação Next.js + React + TypeScript, mantida em um repositório separado da API.
 
-## Desenvolvimento
+## Desenvolvimento local
 
-Requer Bun. Execute `bun install`, copie `.env.example` para `.env`, ajuste `VITE_API_URL` para a URL da API e rode `bun run dev`. Por padrão, a API local usa `http://127.0.0.1:3001`.
+Requer Bun e Node.js 20.9 ou superior. Rode `bun install`, copie `.env.example` para `.env` e configure `NEXT_PUBLIC_API_URL` para a URL da API (por padrão, `http://127.0.0.1:3001`). Inicie com `bun run dev`; o front abre em `http://127.0.0.1:3005`.
 
-## Build e Render
+## Render e Docker
 
-`bun run build` gera a pasta `dist`. O `Dockerfile` empacota o site com Nginx e o `render.yaml` configura um serviço Docker no Render. Publique primeiro a API, então defina `VITE_API_URL` no serviço com a URL pública dela (sem barra no final). O Render disponibiliza essa variável também durante o build da imagem.
+O serviço Docker do `render.yaml` publica a aplicação Next standalone. Crie e publique primeiro o serviço do back-end, depois configure `NEXT_PUBLIC_API_URL` no serviço do front com a URL pública da API, sem barra no final. A variável é incorporada no build porque o browser precisa saber a URL da API.
 
-Para executar a imagem localmente, passe a URL da API que o navegador consegue acessar: `docker build --build-arg VITE_API_URL=http://localhost:3000 -t piada-deploy-frontend .` e depois `docker run --rm -p 8080:8080 piada-deploy-frontend`.
+Build local: `docker build --build-arg NEXT_PUBLIC_API_URL=http://host.docker.internal:3001 -t piada-deploy-frontend .`. Execute com `docker run --rm -p 3000:3000 -e PORT=3000 piada-deploy-frontend`.
 
-## Stack
+## Recursos
 
-- Vite
-- React
-- TypeScript
-
-Geração pública de piadas, escolha de categoria e tom, cadastro e login, histórico pessoal e cópia da piada.
+- Geração própria de piadas por categoria e tom; a geração não salva automaticamente.
+- Cadastro e login para manter um mural pessoal no PostgreSQL do back-end.
+- Edição do texto antes de salvar e operações de leitura, edição e exclusão no histórico.
+- Copiar a piada para a área de transferência.

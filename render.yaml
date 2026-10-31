@@ -4,7 +4,7 @@ services:
     runtime: docker
     dockerfilePath: ./Dockerfile
     dockerContext: .
-    healthCheckPath: /healthz
+    healthCheckPath: /
     envVars:
-      - key: VITE_API_URL
+      - key: NEXT_PUBLIC_API_URL
         sync: false

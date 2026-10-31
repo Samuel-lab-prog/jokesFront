@@ -1,18 +1,25 @@
-FROM oven/bun:1 AS build
-
+FROM oven/bun:1 AS deps
 WORKDIR /app
 COPY package.json bun.lock ./
 RUN bun install --frozen-lockfile
 
-COPY index.html vite.config.ts tsconfig.json tsconfig.app.json tsconfig.node.json ./
-COPY src ./src
-ARG VITE_API_URL=http://localhost:3000
-ENV VITE_API_URL=${VITE_API_URL}
+FROM oven/bun:1 AS builder
+WORKDIR /app
+COPY --from=deps /app/node_modules ./node_modules
+COPY . .
+ARG NEXT_PUBLIC_API_URL=http://127.0.0.1:3001
+ENV NEXT_PUBLIC_API_URL=${NEXT_PUBLIC_API_URL}
+ENV NEXT_TELEMETRY_DISABLED=1
 RUN bun run build
 
-FROM nginx:alpine
-ENV PORT=8080
-ENV NGINX_ENVSUBST_FILTER=^PORT$
-COPY nginx/default.conf.template /etc/nginx/templates/default.conf.template
-COPY --from=build /app/dist /usr/share/nginx/html
-EXPOSE 8080
+FROM node:22-bookworm-slim AS runner
+WORKDIR /app
+ENV NODE_ENV=production
+ENV NEXT_TELEMETRY_DISABLED=1
+ENV HOSTNAME=0.0.0.0
+COPY --from=builder /app/public ./public
+COPY --from=builder --chown=node:node /app/.next/standalone ./
+COPY --from=builder --chown=node:node /app/.next/static ./.next/static
+USER node
+EXPOSE 3000
+CMD ["node", "server.js"]
