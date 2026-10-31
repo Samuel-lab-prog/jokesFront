@@ -1,4 +1,4 @@
-const API_URL = (import.meta.env.VITE_API_URL || 'http://localhost:3000').replace(/\/$/, '');
+const API_URL = (import.meta.env.VITE_API_URL || 'http://127.0.0.1:3001').replace(/\/$/, '');
 const TOKEN_KEY = 'piada-deploy-token';
 export type User = { id: string; name: string; email: string };
 export type Joke = { id: string; category: string; tone: string; context: string; joke: string; createdAt: string };

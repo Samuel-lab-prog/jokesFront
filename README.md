@@ -4,7 +4,7 @@ Aplicação React + TypeScript criada com Vite. Este diretório é um repositór
 
 ## Desenvolvimento
 
-Requer Bun. Execute `bun install`, copie `.env.example` para `.env`, ajuste `VITE_API_URL` para a URL da API e rode `bun run dev`. Por padrão, a API local usa `http://localhost:3000`.
+Requer Bun. Execute `bun install`, copie `.env.example` para `.env`, ajuste `VITE_API_URL` para a URL da API e rode `bun run dev`. Por padrão, a API local usa `http://127.0.0.1:3001`.
 
 ## Build e Render
 
