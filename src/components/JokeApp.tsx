@@ -1,7 +1,7 @@
 'use client';
 
 import { useEffect, useState, type FormEvent } from 'react';
-import { api, clearToken, getToken, setToken, type Joke, type User } from '@/lib/api';
+import { ApiError, api, clearToken, getToken, setToken, type Joke, type User } from '@/lib/api';
 
 const categories = [
   { id: 'atraso', code: '01', name: 'Prazo vencido', note: 'o calendário ganhou', symbol: '⌁' },
@@ -37,6 +37,7 @@ export default function App() {
   const [name, setName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
+  const [authError, setAuthError] = useState('');
   const [editingId, setEditingId] = useState<string | null>(null);
   const [historyDraft, setHistoryDraft] = useState('');
 
@@ -46,13 +47,17 @@ export default function App() {
   };
 
   const refresh = async () => {
-    if (!getToken()) return;
+    if (!getToken()) return false;
     try {
       setHistory(await api<Joke[]>('/jokes/history'));
-    } catch {
-      clearToken();
-      setUser(null);
-      setHistory([]);
+      return true;
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        clearToken();
+        setUser(null);
+        setHistory([]);
+      }
+      return false;
     }
   };
 
@@ -63,7 +68,9 @@ export default function App() {
       .catch(() => clearToken());
     api<Joke[]>('/jokes/history')
       .then((items) => setHistory(items))
-      .catch(() => { clearToken(); setUser(null); setHistory([]); });
+      .catch((error) => {
+        if (error instanceof ApiError && error.status === 401) { clearToken(); setUser(null); setHistory([]); }
+      });
   }, []);
 
   async function generate(event: FormEvent<HTMLFormElement>) {
@@ -123,16 +130,19 @@ export default function App() {
     try {
       const result = await api<{ token: string; user: User }>(
         register ? '/auth/register' : '/auth/login',
-        { method: 'POST', body: JSON.stringify({ name, email, password }) },
+        { method: 'POST', body: JSON.stringify(register ? { name, email, password } : { email, password }) },
       );
       setToken(result.token);
       setUser(result.user);
       setAuthOpen(false);
+      setAuthError('');
       setPassword('');
-      await refresh();
-      notify(`Oi, ${result.user.name}. Seu álibi está salvo.`);
+      const historyLoaded = await refresh();
+      notify(historyLoaded ? `Oi, ${result.user.name}. Seu álibi está salvo.` : `Login concluído, ${result.user.name}. O mural pode demorar para carregar; tente atualizar.`);
     } catch (error) {
-      notify((error as Error).message);
+      setAuthError(error instanceof ApiError && error.status === 401
+        ? 'E-mail ou senha incorretos. Se ainda não criou uma conta, use o link “primeira vez aqui?” abaixo.'
+        : (error as Error).message || 'Não foi possível conectar à API. Tente novamente.');
     } finally {
       setBusy(false);
     }
@@ -164,7 +174,7 @@ export default function App() {
         </a>
         <div className="header-right">
           <span className="status"><i aria-hidden="true" /> plantão aberto</span>
-          <button className="account-button" onClick={() => user ? logout() : setAuthOpen(true)}>
+          <button className="account-button" onClick={() => { if (user) logout(); else { setAuthError(''); setAuthOpen(true); } }}>
             {user ? `sair, ${user.name.split(' ')[0]}` : 'entrar no mural'}
           </button>
         </div>
@@ -309,17 +319,18 @@ export default function App() {
       {authOpen && (
         <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAuthOpen(false); }}>
           <form className="auth-dialog" onSubmit={authenticate}>
-            <button type="button" className="dialog-close" onClick={() => setAuthOpen(false)} aria-label="Fechar">×</button>
+            <button type="button" className="dialog-close" onClick={() => { setAuthOpen(false); setAuthError(''); }} aria-label="Fechar">×</button>
             <div className="section-label">{register ? 'ABRIR ARQUIVO DE ÁLIBIS' : 'ACESSO AO MURAL'}</div>
             <h2>{register ? 'Criar uma conta' : 'Voltar ao mural'}</h2>
             <p className="auth-subtitle">As melhores versões dos fatos merecem ser guardadas.</p>
-            {register && <><label htmlFor="name">Nome</label><input id="name" required value={name} onChange={(event) => setName(event.target.value)} placeholder="Como te chamam no Slack?" /></>}
+            {authError && <p className="auth-error" role="alert">{authError}</p>}
+            {register && <><label htmlFor="name">Nome</label><input id="name" autoComplete="name" required value={name} onChange={(event) => setName(event.target.value)} placeholder="Como te chamam no Slack?" /></>}
             <label htmlFor="email">E-mail</label>
-            <input id="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@exemplo.com" />
+            <input id="email" autoComplete="email" required type="email" value={email} onChange={(event) => { setEmail(event.target.value); setAuthError(''); }} placeholder="voce@exemplo.com" />
             <label htmlFor="password">Senha</label>
-            <input id="password" required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Pelo menos 6 caracteres" />
+            <input id="password" autoComplete={register ? 'new-password' : 'current-password'} required type="password" minLength={register ? 6 : undefined} value={password} onChange={(event) => { setPassword(event.target.value); setAuthError(''); }} placeholder={register ? 'Pelo menos 6 caracteres' : 'Sua senha da conta'} />
             <button className="generate-button" disabled={busy}><span>{register ? 'abrir meu arquivo' : 'entrar no mural'}</span><b>↗</b></button>
-            <button type="button" className="auth-toggle" onClick={() => setRegister(!register)}>{register ? 'já tenho conta — entrar' : 'primeira vez aqui? criar conta'}</button>
+            <button type="button" className="auth-toggle" onClick={() => { setRegister(!register); setAuthError(''); setPassword(''); }}>{register ? 'já tenho conta — entrar' : 'primeira vez aqui? criar conta'}</button>
           </form>
         </div>
       )}

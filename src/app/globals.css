@@ -315,6 +315,7 @@ h1 em::after {
 .auth-dialog h2 { margin: 9px 0 17px; font-size: 29px; letter-spacing: -.06em; }
 .section-label { color: var(--tomato); font-size: 9px; }
 .auth-dialog .auth-subtitle { margin: -8px 0 19px; color: #696b61; font-size: 12px; line-height: 1.5; }
+.auth-error { margin: 0 0 12px; padding: 10px 11px; color: #8f291a; background: #fbe3dc; border: 1px solid #e6a99b; font-size: 11px; line-height: 1.45; }
 .auth-dialog label { display: block; margin: 13px 0 6px; font-size: 11px; font-weight: 700; }
 .auth-dialog input { width: 100%; padding: 10px; color: var(--ink); background: white; border: 1px solid #b5b4aa; border-radius: 1px; font-size: 12px; }
 .auth-dialog .generate-button { margin-top: 17px; }
