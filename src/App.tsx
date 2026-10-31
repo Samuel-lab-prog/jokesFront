@@ -1,27 +1,288 @@
 import { useEffect, useState, type FormEvent } from 'react';
 import { api, clearToken, getToken, setToken, type Joke, type User } from './api';
 
-const names: Record<string,string> = { atraso:'Código atrasado', bug:'Bug misterioso', lentidao:'Código lento', qualidade:'Código questionável' };
-const tones = [['leve','🙂','Leve'],['sarcastico','😏','Sarcástico'],['corporativo','👔','Corporativo'],['dramatico','🎭','Dramático'],['tio','🧔','Tio do pavê']];
+const categories = [
+  { id: 'atraso', code: '01', name: 'Prazo vencido', note: 'o calendário ganhou', symbol: '⌁' },
+  { id: 'bug', code: '02', name: 'Bug sem convite', note: 'apareceu sozinho', symbol: '⁖' },
+  { id: 'lentidao', code: '03', name: 'Tudo em câmera lenta', note: 'até o loading cansou', symbol: '…' },
+  { id: 'qualidade', code: '04', name: 'Código freestyle', note: 'estilo: sexta-feira', symbol: '⌘' },
+] as const;
+
+const tones = [
+  ['leve', 'De boa'],
+  ['sarcastico', 'Com veneno'],
+  ['corporativo', 'Reunião às 9'],
+  ['dramatico', 'Novela das 8'],
+  ['tio', 'Tio do pavê'],
+] as const;
+
+const categoryNames: Record<string, string> = Object.fromEntries(
+  categories.map(({ id, name }) => [id, name]),
+);
+
 export default function App() {
-  const [category,setCategory]=useState('atraso'),[tone,setTone]=useState('leve'),[context,setContext]=useState('');
-  const [joke,setJoke]=useState<Joke|null>(null),[history,setHistory]=useState<Joke[]>([]),[user,setUser]=useState<User|null>(null);
-  const [authOpen,setAuthOpen]=useState(false),[register,setRegister]=useState(false),[busy,setBusy]=useState(false),[toast,setToast]=useState('');
-  const [name,setName]=useState(''),[email,setEmail]=useState(''),[password,setPassword]=useState('');
-  const notify=(message:string)=>{setToast(message);window.setTimeout(()=>setToast(''),2600)};
-  const refresh=async()=>{if(!getToken())return;try{setHistory(await api<Joke[]>('/jokes/history'));}catch{clearToken();setUser(null);setHistory([]);}};
-  useEffect(()=>{if(getToken()){api<{user:User}>('/auth/me').then(data=>setUser(data.user)).catch(()=>clearToken());refresh();}},[]);
-  async function generate(event:FormEvent){event.preventDefault();setBusy(true);try{const result=await api<Joke>('/jokes/generate',{method:'POST',body:JSON.stringify({category,tone,context})});setJoke(result);await refresh();}catch(error){notify((error as Error).message);}finally{setBusy(false);}}
-  async function authenticate(event:FormEvent){event.preventDefault();setBusy(true);try{const result=await api<{token:string;user:User}>(register?'/auth/register':'/auth/login',{method:'POST',body:JSON.stringify({name,email,password})});setToken(result.token);setUser(result.user);setAuthOpen(false);setPassword('');await refresh();notify(`Olá, ${result.user.name}!`);}catch(error){notify((error as Error).message);}finally{setBusy(false);}}
-  async function copy(){if(joke){await navigator.clipboard.writeText(joke.joke);notify('Desculpa copiada!');}}
-  function logout(){clearToken();setUser(null);setHistory([]);notify('Você saiu da conta.');}
-  return <><header className="topbar"><a className="brand" href="#"><span className="brand-mark">{'{ }'}</span> piada<span className="brand-light">.deploy</span></a><div className="header-right"><span className="status"><i/> API operacional</span><button className="account-button" onClick={()=>user?logout():setAuthOpen(true)}>{user?'Sair':'Entrar'}</button></div></header>
-    <main className="layout"><section className="intro"><div className="eyebrow"><span/> CENTRAL DE CONTINGÊNCIA DO DEV</div><h1>O prazo passou.<br/><em>A piada, não.</em></h1><p>Desculpas tecnicamente questionáveis para bugs perfeitamente reais. Gere uma e volte ao trabalho.</p><div className="stats"><div><strong>04</strong><small>categorias</small></div><span className="stat-line"/><div><strong>∞</strong><small>possibilidades</small></div><span className="stat-line"/><div><strong>0</strong><small>garantias</small></div></div></section>
-    <section className="generator card"><div className="card-top"><div><div className="section-label">GERADOR DE DESCULPAS <span>✳</span></div><h2>Qual foi a dessa vez?</h2></div><div className="spark">✳</div></div><form onSubmit={generate}><label htmlFor="category">Cenário</label><div className="select-wrap"><select id="category" value={category} onChange={e=>setCategory(e.target.value)}><option value="atraso">⏰ Código atrasado</option><option value="bug">🐛 Bug misterioso</option><option value="lentidao">🐢 Código lento</option><option value="qualidade">🧹 Código questionável</option></select><span>⌄</span></div><label>Tom da desculpa</label><div className="tone-list">{tones.map(([value,icon,label])=><button type="button" key={value} className={`tone-option ${tone===value?'selected':''}`} onClick={()=>setTone(value)}><span>{icon}</span>{label}</button>)}</div><label htmlFor="context">Um detalhe do contexto <span className="optional">OPCIONAL</span></label><input id="context" className="context-input" maxLength={80} value={context} onChange={e=>setContext(e.target.value)} placeholder="Ex.: apresentação amanhã, deploy na sexta..."/><button className="generate-button" disabled={busy}><span>✳</span> {busy?'Gerando...':'Gerar desculpa'} <b>→</b></button><p className="small-note">⚡ Feita na hora. Responsabilidade sua.</p></form></section>
-    <section className="result card">{joke?<div className="result-content"><span className="result-tag">✳ &nbsp;{names[joke.category]}</span><blockquote>{joke.joke}</blockquote><div className="result-meta"><span>{joke.context?`CONTEXTO: ${joke.context}`:'GERADA AGORA • NÃO TESTADA EM PRODUÇÃO'}</span><button className="copy-button" onClick={copy}>Copiar ↗</button></div></div>:<div className="result-placeholder"><span className="quote-icon">“</span><p>Sua próxima desculpa<br/>tecnicamente defensável<br/>aparece aqui.</p><span className="placeholder-bottom">AGUARDANDO UM INCIDENTE...</span></div>}</section>
-    <aside className="history card"><div className="history-head"><div><div className="section-label">SEU MURAL</div><h3>Últimas desculpas</h3></div><button onClick={refresh} title="Atualizar histórico">↻</button></div><div className="history-list">{history.length?history.slice(0,5).map(item=><article className="history-item" key={item.id}><p>{item.joke}</p><small>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</small></article>):<div className="history-empty">{user?'Ainda não há desculpas. Gere a primeira!':'Entre para guardar suas desculpas favoritas.'}</div>}</div><button className="text-button" onClick={()=>user?refresh():setAuthOpen(true)}>{user?'Atualizar histórico':'Entrar para ver o histórico'} <span>→</span></button></aside></main>
-    <footer><span>PIADA.DEPLOY <i>●</i> FEITO COM CAFÉ E PRAZOS CURTOS</span><span>Feito para quem já disse “na minha máquina funciona”. <b>¯\_(ツ)_/¯</b></span></footer>
-    {toast&&<div className="toast show" role="status">{toast}</div>}
-    {authOpen&&<div className="modal-backdrop" onMouseDown={e=>{if(e.target===e.currentTarget)setAuthOpen(false)}}><form className="auth-dialog" onSubmit={authenticate}><button type="button" className="dialog-close" onClick={()=>setAuthOpen(false)}>×</button><div className="section-label">{register?'CRIE SEU ARQUIVO DE INCIDENTES':'SUA CONTA DE EMERGÊNCIA'}</div><h2>{register?'Criar uma conta':'Entre no mural'}</h2><p className="auth-subtitle">Guarde suas melhores desculpas para a próxima reunião.</p>{register&&<><label htmlFor="name">Nome</label><input id="name" required value={name} onChange={e=>setName(e.target.value)} placeholder="Como podemos te chamar?"/> </>}<label htmlFor="email">E-mail</label><input id="email" required type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="voce@exemplo.com"/><label htmlFor="password">Senha</label><input id="password" required type="password" minLength={6} value={password} onChange={e=>setPassword(e.target.value)} placeholder="Pelo menos 6 caracteres"/><button className="generate-button" disabled={busy}>{register?'Criar conta':'Entrar'} <b>→</b></button><button type="button" className="text-button auth-toggle" onClick={()=>setRegister(!register)}>{register?'Já tem conta? Entrar':'Não tem conta? Criar agora'}</button></form></div>}
-  </>;
+  const [category, setCategory] = useState('atraso');
+  const [tone, setTone] = useState('leve');
+  const [context, setContext] = useState('');
+  const [joke, setJoke] = useState<Joke | null>(null);
+  const [history, setHistory] = useState<Joke[]>([]);
+  const [user, setUser] = useState<User | null>(null);
+  const [authOpen, setAuthOpen] = useState(false);
+  const [register, setRegister] = useState(false);
+  const [busy, setBusy] = useState(false);
+  const [toast, setToast] = useState('');
+  const [name, setName] = useState('');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+
+  const notify = (message: string) => {
+    setToast(message);
+    window.setTimeout(() => setToast(''), 2600);
+  };
+
+  const refresh = async () => {
+    if (!getToken()) return;
+    try {
+      setHistory(await api<Joke[]>('/jokes/history'));
+    } catch {
+      clearToken();
+      setUser(null);
+      setHistory([]);
+    }
+  };
+
+  useEffect(() => {
+    if (!getToken()) return;
+    api<{ user: User }>('/auth/me')
+      .then(({ user: currentUser }) => setUser(currentUser))
+      .catch(() => clearToken());
+    void refresh();
+  }, []);
+
+  async function generate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const result = await api<Joke>('/jokes/generate', {
+        method: 'POST',
+        body: JSON.stringify({ category, tone, context }),
+      });
+      setJoke(result);
+      await refresh();
+    } catch (error) {
+      notify((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function authenticate(event: FormEvent<HTMLFormElement>) {
+    event.preventDefault();
+    setBusy(true);
+    try {
+      const result = await api<{ token: string; user: User }>(
+        register ? '/auth/register' : '/auth/login',
+        { method: 'POST', body: JSON.stringify({ name, email, password }) },
+      );
+      setToken(result.token);
+      setUser(result.user);
+      setAuthOpen(false);
+      setPassword('');
+      await refresh();
+      notify(`Oi, ${result.user.name}. Seu álibi está salvo.`);
+    } catch (error) {
+      notify((error as Error).message);
+    } finally {
+      setBusy(false);
+    }
+  }
+
+  async function copyJoke() {
+    if (!joke) return;
+    try {
+      await navigator.clipboard.writeText(joke.joke);
+      notify('Copiado. Pode negar a autoria.');
+    } catch {
+      notify('Não rolou copiar. Seleciona a frase e vai na mão.');
+    }
+  }
+
+  function logout() {
+    clearToken();
+    setUser(null);
+    setHistory([]);
+    notify('Saiu. O histórico continua aqui quando voltar.');
+  }
+
+  return (
+    <div className="site-shell">
+      <header className="topbar">
+        <a className="brand" href="#top" aria-label="Piada de Deploy, início">
+          <span className="brand-mark" aria-hidden="true">✳</span>
+          <span>piada<span className="brand-dot">.</span>deploy</span>
+        </a>
+        <div className="header-right">
+          <span className="status"><i aria-hidden="true" /> plantão aberto</span>
+          <button className="account-button" onClick={() => user ? logout() : setAuthOpen(true)}>
+            {user ? `sair, ${user.name.split(' ')[0]}` : 'entrar no mural'}
+          </button>
+        </div>
+      </header>
+
+      <main id="top" className="layout">
+        <section className="intro">
+          <div className="eyebrow"><span>EDIÇÃO 01</span><b>•</b> PLANTÃO DO PRAZO</div>
+          <h1>O prazo venceu.<br /><em>A desculpa, não.</em></h1>
+          <p className="intro-copy">
+            Um pequeno gerador de versões dos fatos para quem ainda está tentando
+            fazer aquele código funcionar.
+          </p>
+
+          <div className="terminal-slip" aria-label="Bilhete do terminal">
+            <div className="terminal-top"><span>log de sexta-feira</span><span>23:58:04</span></div>
+            <p><span>$ git status</span><br />branch: <b>devia-ter-entregue</b><br />tudo certo. <i>nada sob controle.</i></p>
+          </div>
+          <p className="margin-note">*relato sujeito a revisão pelo QA</p>
+        </section>
+
+        <section className="generator" aria-labelledby="generator-title">
+          <div className="form-heading">
+            <span className="form-index">FORMULÁRIO 404-A</span>
+            <span className="form-doodle" aria-hidden="true">↘</span>
+            <h2 id="generator-title">Qual é o BO?</h2>
+            <p>Preenche a ocorrência. A gente cuida da narrativa.</p>
+          </div>
+          <form onSubmit={generate}>
+            <fieldset className="field-group">
+              <legend>O que aconteceu no repositório?</legend>
+              <div className="category-grid">
+                {categories.map((item) => (
+                  <button
+                    className={`category-option ${category === item.id ? 'selected' : ''}`}
+                    type="button"
+                    key={item.id}
+                    aria-pressed={category === item.id}
+                    onClick={() => setCategory(item.id)}
+                  >
+                    <span className="category-code">{item.code} / {item.symbol}</span>
+                    <strong>{item.name}</strong>
+                    <small>{item.note}</small>
+                  </button>
+                ))}
+              </div>
+            </fieldset>
+
+            <fieldset className="field-group tone-group">
+              <legend>Qual vai ser a versão?</legend>
+              <div className="tone-list">
+                {tones.map(([value, label]) => (
+                  <button
+                    className={`tone-option ${tone === value ? 'selected' : ''}`}
+                    type="button"
+                    key={value}
+                    aria-pressed={tone === value}
+                    onClick={() => setTone(value)}
+                  >{label}</button>
+                ))}
+              </div>
+            </fieldset>
+
+            <label className="context-label" htmlFor="context">
+              Tem algum detalhe que ajude o álibi?
+              <span>OPCIONAL • ATÉ 80 CARACTERES</span>
+            </label>
+            <input
+              id="context"
+              className="context-input"
+              maxLength={80}
+              value={context}
+              onChange={(event) => setContext(event.target.value)}
+              placeholder="ex.: demo amanhã, deploy na sexta…"
+            />
+
+            <button className="generate-button" disabled={busy}>
+              <span>{busy ? 'montando a versão…' : 'me dá uma desculpa'}</span>
+              <b aria-hidden="true">↗</b>
+            </button>
+            <p className="small-note">Sem IA, sem julgamento. Só uma boa história.</p>
+          </form>
+        </section>
+
+        <section className={`result ${joke ? 'has-joke' : ''}`} aria-live="polite" aria-label="Desculpa gerada">
+          <div className="receipt-head">
+            <span>RECIBO DE RESPONSABILIDADE</span>
+            <span>{joke ? `#${joke.id.slice(-5).toUpperCase()}` : '#00000'}</span>
+          </div>
+          {joke ? (
+            <div className="result-content">
+              <div className="result-kicker"><span>VERSÃO OFICIAL</span><span>{categoryNames[joke.category]}</span></div>
+              <blockquote>{joke.joke}</blockquote>
+              <div className="result-meta">
+                <span>{joke.context ? `ANEXO: ${joke.context}` : 'VALIDADE: ATÉ A PRÓXIMA DAILY'}</span>
+                <button className="copy-button" onClick={copyJoke}>copiar ↗</button>
+              </div>
+            </div>
+          ) : (
+            <div className="result-placeholder">
+              <span className="placeholder-asterisk" aria-hidden="true">✳</span>
+              <p>Aqui ainda não tem<br />versão oficial dos fatos.</p>
+              <span>PREENCHE O FORMULÁRIO ACIMA E TORCE</span>
+            </div>
+          )}
+          <div className="receipt-foot"><span>PIADA.DEPLOY • SEM GARANTIA DE MERGE</span><span>↘</span></div>
+        </section>
+
+        <aside className="history" aria-labelledby="history-title">
+          <div className="history-head">
+            <div>
+              <span className="history-label">ARQUIVO DE VERSÕES</span>
+              <h2 id="history-title">O que já contamos</h2>
+            </div>
+            <span className="history-count">{String(history.length).padStart(2, '0')}</span>
+          </div>
+          <div className="history-list">
+            {history.length ? history.slice(0, 4).map((item, index) => (
+              <article className="history-item" key={item.id}>
+                <span className="history-number">{String(index + 1).padStart(2, '0')}</span>
+                <p>{item.joke}</p>
+                <small>{new Date(item.createdAt).toLocaleDateString('pt-BR')}</small>
+              </article>
+            )) : (
+              <p className="history-empty">
+                {user ? 'Arquivo limpo. Desconfie.' : 'Entra no mural pra guardar as melhores versões.'}
+              </p>
+            )}
+          </div>
+          <button className="history-link" onClick={() => user ? refresh() : setAuthOpen(true)}>
+            {user ? 'atualizar arquivo' : 'guardar minhas desculpas'} <span>↗</span>
+          </button>
+        </aside>
+      </main>
+
+      <footer className="site-footer">
+        <span>FEITO NO INTERVALO ENTRE UM BUILD E OUTRO</span>
+        <span>se funcionar, não mexe. <b>™</b></span>
+      </footer>
+
+      {toast && <div className="toast show" role="status">{toast}</div>}
+
+      {authOpen && (
+        <div className="modal-backdrop" onMouseDown={(event) => { if (event.target === event.currentTarget) setAuthOpen(false); }}>
+          <form className="auth-dialog" onSubmit={authenticate}>
+            <button type="button" className="dialog-close" onClick={() => setAuthOpen(false)} aria-label="Fechar">×</button>
+            <div className="section-label">{register ? 'ABRIR ARQUIVO DE ÁLIBIS' : 'ACESSO AO MURAL'}</div>
+            <h2>{register ? 'Criar uma conta' : 'Voltar ao mural'}</h2>
+            <p className="auth-subtitle">As melhores versões dos fatos merecem ser guardadas.</p>
+            {register && <><label htmlFor="name">Nome</label><input id="name" required value={name} onChange={(event) => setName(event.target.value)} placeholder="Como te chamam no Slack?" /></>}
+            <label htmlFor="email">E-mail</label>
+            <input id="email" required type="email" value={email} onChange={(event) => setEmail(event.target.value)} placeholder="voce@exemplo.com" />
+            <label htmlFor="password">Senha</label>
+            <input id="password" required type="password" minLength={6} value={password} onChange={(event) => setPassword(event.target.value)} placeholder="Pelo menos 6 caracteres" />
+            <button className="generate-button" disabled={busy}><span>{register ? 'abrir meu arquivo' : 'entrar no mural'}</span><b>↗</b></button>
+            <button type="button" className="auth-toggle" onClick={() => setRegister(!register)}>{register ? 'já tenho conta — entrar' : 'primeira vez aqui? criar conta'}</button>
+          </form>
+        </div>
+      )}
+    </div>
+  );
 }
